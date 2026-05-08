@@ -743,3 +743,17 @@ Built with FastAPI + Gradio + SQLite
 # CREATE DEMO
 # =================================================
 demo = create_dashboard()
+
+# =================================================
+# CREATE DEMO
+# =================================================
+demo = create_dashboard()
+
+import os
+
+port = int(os.environ.get("PORT", 7860))
+
+demo.launch(
+    server_name="0.0.0.0",
+    server_port=port
+)
