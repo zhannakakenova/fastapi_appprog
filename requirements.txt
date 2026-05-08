@@ -1,0 +1,13 @@
+fastapi
+uvicorn
+gradio==4.44.1
+gradio_client==1.3.0
+huggingface_hub==0.25.2
+pandas
+matplotlib
+wordcloud
+beautifulsoup4
+requests
+httpx
+numpy
+pillow
