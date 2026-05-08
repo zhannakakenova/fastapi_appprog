@@ -1,11 +1,12 @@
-import gradio as gr
-import sqlite3
-import pandas as pd
-import matplotlib.pyplot as plt
-from collections import Counter
-from wordcloud import WordCloud
+import os
 import re
-import random
+import sqlite3
+from collections import Counter
+
+import gradio as gr
+import matplotlib.pyplot as plt
+import pandas as pd
+from wordcloud import WordCloud
 
 # =================================================
 # DATABASE
@@ -14,7 +15,6 @@ DATABASE = "quotes.db"
 
 
 def load_data():
-
     conn = sqlite3.connect(DATABASE)
 
     df = pd.read_sql_query(
@@ -51,23 +51,13 @@ def random_quote():
     row = df.sample(1).iloc[0]
 
     return f"""
-<div style="
-padding:25px;
-border-radius:20px;
-background:rgba(255,255,255,0.08);
-backdrop-filter:blur(10px);
-box-shadow:0 0 20px rgba(59,130,246,0.4);
-">
+## ✨ Quote of the Day
 
-<h2>✨ Quote of the Day</h2>
+> {row['quote']}
 
-<h3>{row['quote']}</h3>
+👤 **{row['author']}**
 
-<p>👤 {row['author']}</p>
-
-<p>🏷 {row['category']}</p>
-
-</div>
+🏷 **{row['category']}**
 """
 
 
@@ -78,7 +68,7 @@ def search_quotes(keyword):
 
     df = load_data()
 
-    if keyword == "":
+    if not keyword:
         return df
 
     return df[
@@ -116,7 +106,7 @@ def get_authors():
     df = load_data()
 
     return sorted(
-        df["author"].unique()
+        df["author"].dropna().unique()
     )
 
 
@@ -125,12 +115,12 @@ def get_categories():
     df = load_data()
 
     return sorted(
-        df["category"].unique()
+        df["category"].dropna().unique()
     )
 
 
 # =================================================
-# POSITIVITY
+# POSITIVITY SCORE
 # =================================================
 POSITIVE_WORDS = [
     "love",
@@ -148,7 +138,7 @@ def positivity_score():
 
     df = load_data()
 
-    text = " ".join(df["quote"])
+    text = " ".join(df["quote"].astype(str))
 
     score = 0
 
@@ -183,7 +173,7 @@ def detect_mood(text):
 
 
 # =================================================
-# AI RECOMMENDATION
+# RECOMMENDATIONS
 # =================================================
 def recommend_quotes(user_text):
 
@@ -198,7 +188,7 @@ def recommend_quotes(user_text):
     for _, row in df.iterrows():
 
         quote_words = set(
-            row["quote"].lower().split()
+            str(row["quote"]).lower().split()
         )
 
         similarity = len(
@@ -225,7 +215,7 @@ def recommend_quotes(user_text):
 
 
 # =================================================
-# STOPWORDS
+# WORD FREQUENCY
 # =================================================
 STOPWORDS = {
     "the", "and", "is", "to", "of",
@@ -235,14 +225,13 @@ STOPWORDS = {
 }
 
 
-# =================================================
-# WORD FREQUENCY
-# =================================================
 def word_frequency():
 
     df = load_data()
 
-    text = " ".join(df["quote"])
+    text = " ".join(
+        df["quote"].astype(str)
+    )
 
     words = re.findall(
         r"\b\w+\b",
@@ -266,9 +255,7 @@ def word_frequency():
 
     ax.bar(labels, values)
 
-    ax.set_title(
-        "Top Keywords"
-    )
+    ax.set_title("Top Keywords")
 
     plt.xticks(rotation=45)
 
@@ -334,19 +321,20 @@ def category_chart():
 
 
 # =================================================
-# WORDCLOUD
+# WORD CLOUD
 # =================================================
 def generate_wordcloud():
 
     df = load_data()
 
-    text = " ".join(df["quote"])
+    text = " ".join(
+        df["quote"].astype(str)
+    )
 
     wc = WordCloud(
         width=1200,
         height=600,
-        background_color="black",
-        colormap="plasma"
+        background_color="black"
     ).generate(text)
 
     fig, ax = plt.subplots(figsize=(12, 6))
@@ -376,384 +364,209 @@ def export_csv():
 
 
 # =================================================
-# CUSTOM CSS
-# =================================================
-CUSTOM_CSS = """
-body {
-    background:#020617;
-}
-
-.gradio-container {
-    background:linear-gradient(
-        to right,
-        #020617,
-        #0f172a
-    );
-    color:white;
-}
-
-footer {
-    visibility:hidden;
-}
-
-button {
-    border-radius:15px !important;
-    background:#2563eb !important;
-    color:white !important;
-}
-
-textarea, input {
-    border-radius:15px !important;
-}
-
-"""
-
-
-# =================================================
 # UI
 # =================================================
-def create_dashboard():
+with gr.Blocks(
+    title="AI Quote Intelligence Platform"
+) as demo:
 
-    with gr.Blocks(
-        css=CUSTOM_CSS,
-        title="AI Quote Intelligence Platform"
-    ) as demo:
-
-        # HERO IMAGE
-        gr.Image(
-            value="https://images.unsplash.com/photo-1516321318423-f06f85e504b3",
-            height=280,
-            show_label=False,
-            interactive=False
-        )
-
-        # HEADER
-        gr.Markdown("""
+    gr.Markdown("""
 # 🚀 AI Quote Intelligence Platform
 
-### Advanced NLP-style Analytics Dashboard
-
 Analyze quotes with:
-- FastAPI
 - Gradio
 - SQLite
-- AI-style Text Analysis
+- NLP-style Analytics
 - Interactive Visualizations
 """)
 
-        # =================================================
-        # TABS
-        # =================================================
-        with gr.Tabs():
+    with gr.Tabs():
 
-            # =============================================
-            # DASHBOARD
-            # =============================================
-            with gr.Tab("🏠 Dashboard"):
+        # DASHBOARD
+        with gr.Tab("Dashboard"):
 
-                gr.Markdown(
-                    "## 📊 Platform Overview"
+            with gr.Row():
+
+                total_quotes = gr.Number(
+                    label="Quotes"
                 )
 
-                with gr.Row():
-
-                    total_quotes = gr.Number(
-                        label="📚 Quotes"
-                    )
-
-                    total_authors = gr.Number(
-                        label="👤 Authors"
-                    )
-
-                    total_categories = gr.Number(
-                        label="🏷 Categories"
-                    )
-
-                demo.load(
-                    dashboard_stats,
-                    outputs=[
-                        total_quotes,
-                        total_authors,
-                        total_categories
-                    ]
+                total_authors = gr.Number(
+                    label="Authors"
                 )
 
-                gr.Markdown("---")
-
-                random_output = gr.Markdown()
-
-                random_btn = gr.Button(
-                    "✨ Generate Smart Quote"
+                total_categories = gr.Number(
+                    label="Categories"
                 )
 
-                random_btn.click(
-                    random_quote,
-                    outputs=random_output
-                )
-
-                demo.load(
-                    random_quote,
-                    outputs=random_output
-                )
-
-            # =============================================
-            # SEARCH
-            # =============================================
-            with gr.Tab("🔎 Search Engine"):
-
-                gr.Markdown(
-                    "## 🔍 Intelligent Search"
-                )
-
-                with gr.Row():
-
-                    keyword = gr.Textbox(
-                        label="Search Quotes"
-                    )
-
-                    search_btn = gr.Button(
-                        "Search"
-                    )
-
-                search_output = gr.Dataframe()
-
-                search_btn.click(
-                    search_quotes,
-                    inputs=keyword,
-                    outputs=search_output
-                )
-
-                gr.Markdown("---")
-
-                gr.Markdown(
-                    "## 🎯 Advanced Filters"
-                )
-
-                with gr.Row():
-
-                    author_dropdown = gr.Dropdown(
-                        choices=get_authors(),
-                        label="Author"
-                    )
-
-                    category_dropdown = gr.Dropdown(
-                        choices=get_categories(),
-                        label="Category"
-                    )
-
-                with gr.Row():
-
-                    author_btn = gr.Button(
-                        "Filter Author"
-                    )
-
-                    category_btn = gr.Button(
-                        "Filter Category"
-                    )
-
-                author_output = gr.Dataframe()
-                category_output = gr.Dataframe()
-
-                author_btn.click(
-                    filter_author,
-                    inputs=author_dropdown,
-                    outputs=author_output
-                )
-
-                category_btn.click(
-                    filter_category,
-                    inputs=category_dropdown,
-                    outputs=category_output
-                )
-
-            # =============================================
-            # ANALYTICS
-            # =============================================
-            with gr.Tab("📈 Analytics"):
-
-                gr.Markdown(
-                    "## 📊 Data Visualization"
-                )
-
-                with gr.Row():
-
-                    btn_authors = gr.Button(
-                        "Top Authors"
-                    )
-
-                    btn_category = gr.Button(
-                        "Category Distribution"
-                    )
-
-                with gr.Row():
-
-                    plot1 = gr.Plot()
-                    plot2 = gr.Plot()
-
-                btn_authors.click(
-                    author_chart,
-                    outputs=plot1
-                )
-
-                btn_category.click(
-                    category_chart,
-                    outputs=plot2
-                )
-
-                gr.Markdown("---")
-
-                gr.Markdown(
-                    "## 🧠 NLP Analysis"
-                )
-
-                with gr.Row():
-
-                    btn_words = gr.Button(
-                        "Keyword Frequency"
-                    )
-
-                    btn_cloud = gr.Button(
-                        "Generate WordCloud"
-                    )
-
-                with gr.Row():
-
-                    plot3 = gr.Plot()
-                    plot4 = gr.Plot()
-
-                btn_words.click(
-                    word_frequency,
-                    outputs=plot3
-                )
-
-                btn_cloud.click(
-                    generate_wordcloud,
-                    outputs=plot4
-                )
-
-            # =============================================
-            # AI INSIGHTS
-            # =============================================
-            with gr.Tab("🤖 AI Insights"):
-
-                gr.Markdown(
-                    "## 😊 AI Sentiment Analysis"
-                )
-
-                positivity_output = gr.Markdown()
-
-                positivity_btn = gr.Button(
-                    "Analyze Positivity"
-                )
-
-                positivity_btn.click(
-                    positivity_score,
-                    outputs=positivity_output
-                )
-
-                gr.Markdown("---")
-
-                gr.Markdown(
-                    "## 🎭 Mood Detector"
-                )
-
-                mood_input = gr.Textbox(
-                    label="Enter Text"
-                )
-
-                mood_output = gr.Textbox()
-
-                mood_btn = gr.Button(
-                    "Detect Mood"
-                )
-
-                mood_btn.click(
-                    detect_mood,
-                    inputs=mood_input,
-                    outputs=mood_output
-                )
-
-                gr.Markdown("---")
-
-                gr.Markdown(
-                    "## 🤖 AI Quote Recommendation"
-                )
-
-                recommend_input = gr.Textbox(
-                    label="Enter Topic"
-                )
-
-                recommend_output = gr.Textbox(
-                    lines=10
-                )
-
-                recommend_btn = gr.Button(
-                    "Recommend Quotes"
-                )
-
-                recommend_btn.click(
-                    recommend_quotes,
-                    inputs=recommend_input,
-                    outputs=recommend_output
-                )
-
-            # =============================================
-            # EXPORT
-            # =============================================
-            with gr.Tab("⬇ Export Center"):
-
-                gr.Markdown(
-                    "## 📄 Dataset"
-                )
-
-                gr.Dataframe(
-                    value=load_data(),
-                    interactive=False
-                )
-
-                gr.Markdown("---")
-
-                gr.Markdown(
-                    "## ⬇ Download CSV"
-                )
-
-                export_btn = gr.Button(
-                    "Export Dataset"
-                )
-
-                export_file = gr.File()
-
-                export_btn.click(
-                    export_csv,
-                    outputs=export_file
-                )
-
-        # FOOTER
-        gr.Markdown("""
----
-# ⚡ AI-Powered Analytics Platform
-
-Built with FastAPI + Gradio + SQLite
-""")
-
-    return demo
+            demo.load(
+                dashboard_stats,
+                outputs=[
+                    total_quotes,
+                    total_authors,
+                    total_categories
+                ]
+            )
+
+            random_output = gr.Markdown()
+
+            random_btn = gr.Button(
+                "Generate Quote"
+            )
+
+            random_btn.click(
+                random_quote,
+                outputs=random_output
+            )
+
+            demo.load(
+                random_quote,
+                outputs=random_output
+            )
+
+        # SEARCH
+        with gr.Tab("Search"):
+
+            keyword = gr.Textbox(
+                label="Search Quotes"
+            )
+
+            search_btn = gr.Button(
+                "Search"
+            )
+
+            search_output = gr.Dataframe()
+
+            search_btn.click(
+                search_quotes,
+                inputs=keyword,
+                outputs=search_output
+            )
+
+        # ANALYTICS
+        with gr.Tab("Analytics"):
+
+            btn_authors = gr.Button(
+                "Top Authors"
+            )
+
+            btn_category = gr.Button(
+                "Category Distribution"
+            )
+
+            plot1 = gr.Plot()
+            plot2 = gr.Plot()
+
+            btn_authors.click(
+                author_chart,
+                outputs=plot1
+            )
+
+            btn_category.click(
+                category_chart,
+                outputs=plot2
+            )
+
+            btn_words = gr.Button(
+                "Keyword Frequency"
+            )
+
+            btn_cloud = gr.Button(
+                "Generate WordCloud"
+            )
+
+            plot3 = gr.Plot()
+            plot4 = gr.Plot()
+
+            btn_words.click(
+                word_frequency,
+                outputs=plot3
+            )
+
+            btn_cloud.click(
+                generate_wordcloud,
+                outputs=plot4
+            )
+
+        # AI
+        with gr.Tab("AI Insights"):
+
+            positivity_output = gr.Markdown()
+
+            positivity_btn = gr.Button(
+                "Analyze Positivity"
+            )
+
+            positivity_btn.click(
+                positivity_score,
+                outputs=positivity_output
+            )
+
+            mood_input = gr.Textbox(
+                label="Enter Text"
+            )
+
+            mood_output = gr.Textbox()
+
+            mood_btn = gr.Button(
+                "Detect Mood"
+            )
+
+            mood_btn.click(
+                detect_mood,
+                inputs=mood_input,
+                outputs=mood_output
+            )
+
+            recommend_input = gr.Textbox(
+                label="Enter Topic"
+            )
+
+            recommend_output = gr.Textbox(
+                lines=10
+            )
+
+            recommend_btn = gr.Button(
+                "Recommend Quotes"
+            )
+
+            recommend_btn.click(
+                recommend_quotes,
+                inputs=recommend_input,
+                outputs=recommend_output
+            )
+
+        # EXPORT
+        with gr.Tab("Export"):
+
+            gr.Dataframe(
+                value=load_data(),
+                interactive=False
+            )
+
+            export_btn = gr.Button(
+                "Export CSV"
+            )
+
+            export_file = gr.File()
+
+            export_btn.click(
+                export_csv,
+                outputs=export_file
+            )
 
 
 # =================================================
-# CREATE DEMO
+# RAILWAY START
 # =================================================
-demo = create_dashboard()
+if __name__ == "__main__":
 
-# =================================================
-# CREATE DEMO
-# =================================================
-demo = create_dashboard()
+    port = int(
+        os.environ.get("PORT", 7860)
+    )
 
-import os
-
-port = int(os.environ.get("PORT", 7860))
-
-demo.launch(
-    server_name="0.0.0.0",
-    server_port=port
-)
+    demo.launch(
+        server_name="0.0.0.0",
+        server_port=port,
+        share=True
+    )
